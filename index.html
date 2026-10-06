@@ -2027,7 +2027,7 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
                                   ) : (
                                       <div className="w-full max-w-[4rem] flex flex-col justify-end gap-[1px] transition-all duration-700" style={{ height: `${totalHeightSentiment}%`, minHeight: sentData.total > 0 ? '5%' : '4px' }}>
                                          {sentData.happy > 0 && <div className="w-full bg-green-500 dark:bg-green-600 rounded-t-sm" style={{ height: `${(sentData.happy / sentData.total) * 100}%`, minHeight: '2px' }}></div>}
-                                         {sentData.neutral > 0 && <div className="w-full bg-yellow-400 dark:bg-yellow-500" style={{ height: `${(sentData.neutral / sentData.total) * 100}%`, minHeight: '2px' }}></div>}
+                                         {sentData.neutral > 0 && <div className="w-full bg-yellow-400 dark:bg-yellow-400" style={{ height: `${(sentData.neutral / sentData.total) * 100}%`, minHeight: '2px' }}></div>}
                                          {sentData.sad > 0 && <div className="w-full bg-red-500 dark:bg-red-600 rounded-b-sm" style={{ height: `${(sentData.sad / sentData.total) * 100}%`, minHeight: '2px' }}></div>}
                                          {sentData.total === 0 && <div className="w-full h-[4px] bg-slate-200 dark:bg-slate-700 rounded-t-sm"></div>}
                                       </div>
@@ -2447,8 +2447,6 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
 
        useEffect(() => { setVisibleComments(50); }, [overviewMonth, vaultTab]);
 
-       const myLinks = isAdmin ? legacyData?.links?.[0] : legacyData?.links?.find(l => l.System_ID === targetDeptId);
-
        const analytics = useMemo(() => {
           const ratingsMonthly = {};
           for(let i=1; i<=12; i++) {
@@ -2479,16 +2477,29 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
              monthsData[monthKey].count += 1;
 
              // Extracting the rating from the old Google Forms column
-             const ratingKey = Object.keys(row).find(k => k.toLowerCase().includes('rate the quality'));
+             const ratingKey = Object.keys(row).find(k => {
+                 const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                 return cleanK.includes('rate') || cleanK.includes('quality') || cleanK.includes('satisf');
+             });
+             
              const ratingStr = ratingKey ? String(row[ratingKey] || "").trim().toLowerCase() : "";
              
              let rowPoints = 0;
              let rowMax = 0;
-             let isAnswered = false;
 
-             if(ratingStr.includes('happy')) { rowPoints = 3; rowMax = 3; ratingsMonthly[monthKey].happy++; ratingsMonthly[monthKey].total++; isAnswered = true; }
-             else if(ratingStr.includes('neutral')) { rowPoints = 2; rowMax = 3; ratingsMonthly[monthKey].neutral++; ratingsMonthly[monthKey].total++; isAnswered = true; }
-             else if(ratingStr.includes('sad')) { rowPoints = 1; rowMax = 3; ratingsMonthly[monthKey].sad++; ratingsMonthly[monthKey].total++; isAnswered = true; }
+             // Catch "Happy", "Neutral", "Sad", OR numerical equivalents
+             if(ratingStr.includes('happy') || ratingStr === '3') { 
+                 rowPoints = 3; rowMax = 3; 
+                 ratingsMonthly[monthKey].happy++; ratingsMonthly[monthKey].total++; 
+             }
+             else if(ratingStr.includes('neutral') || ratingStr === '2') { 
+                 rowPoints = 2; rowMax = 3; 
+                 ratingsMonthly[monthKey].neutral++; ratingsMonthly[monthKey].total++; 
+             }
+             else if(ratingStr.includes('sad') || ratingStr === '1') { 
+                 rowPoints = 1; rowMax = 3; 
+                 ratingsMonthly[monthKey].sad++; ratingsMonthly[monthKey].total++; 
+             }
 
              monthsData[monthKey].score += rowPoints;
              monthsData[monthKey].max += rowMax;
@@ -2509,7 +2520,6 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
                  });
              }
 
-             // Simulating general questions for OPD compatibility (if needed)
              const v1 = row["Have you visited or have you been admitted to another hospital?"];
              if (v1 === 'Yes') insightCounts.q1.Yes++; else if (v1 === 'No') insightCounts.q1.No++;
 
@@ -2558,7 +2568,6 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
                    <div className="flex flex-wrap gap-2 mt-6 bg-slate-800 p-2 rounded-2xl border border-slate-600 inline-flex w-full sm:w-auto">
                       <button onClick={() => setVaultTab('native_overview')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_overview' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Native Dashboard</button>
                       <button onClick={() => setVaultTab('native_feedback')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_feedback' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Raw Feedback List</button>
-                      <button onClick={() => setVaultTab('official_docs')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'official_docs' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Official Documents</button>
                    </div>
                 </div>
              </div>
@@ -2741,86 +2750,6 @@ function MasterFeedbackManager({ comments, commentCats, setCommentCats, selected
                 </div>
              )}
 
-             {vaultTab === 'official_docs' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
-                   {!myLinks ? (
-                       <div className="bg-slate-50 dark:bg-slate-900/50 p-12 rounded-[2rem] border border-slate-200 dark:border-slate-700 text-center">
-                          <Database className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                          <h4 className="text-xl font-black text-slate-600 dark:text-slate-400">No Official Archive Found</h4>
-                          <p className="text-slate-500 mt-2">There are no legacy {year} Google Docs mapped to this specific view.</p>
-                       </div>
-                   ) : (
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                          {myLinks['All Comments Link'] && (
-                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-blue-400 transition-colors">
-                                <div>
-                                   <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
-                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Compiled Masterlist</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the unfiltered master document of patient comments from {year}.</p>
-                                </div>
-                                <button onClick={() => setIframeUrl(myLinks['All Comments Link'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
-                                   View Document <Maximize2 className="w-4 h-4" />
-                                </button>
-                             </div>
-                          )}
-
-                          {myLinks['Links for the Comments Compilation'] && (
-                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-blue-400 transition-colors">
-                                <div>
-                                   <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
-                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept Patient Comments</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">View the raw, unfiltered patient feedback specifically submitted for your department during {year}.</p>
-                                </div>
-                                <button onClick={() => setIframeUrl(myLinks['Links for the Comments Compilation'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
-                                   View Document <Maximize2 className="w-4 h-4" />
-                                </button>
-                             </div>
-                          )}
-
-                          {myLinks['Links for the Status Reports Compilation'] && (
-                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-amber-400 transition-colors">
-                                <div>
-                                   <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-amber-200 dark:border-slate-600"><ClipboardCheck className="w-7 h-7" /></div>
-                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept CQI Reports</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review your official, submitted Action and Evaluation reports logged for the {year} year.</p>
-                                </div>
-                                <button onClick={() => setIframeUrl(myLinks['Links for the Status Reports Compilation'])} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
-                                   View Document <Maximize2 className="w-4 h-4" />
-                                </button>
-                             </div>
-                          )}
-
-                          {myLinks['Monthly Census Link'] && (
-                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-indigo-400 transition-colors">
-                                <div>
-                                   <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-indigo-200 dark:border-slate-600"><BarChart3 className="w-7 h-7" /></div>
-                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Monthly Census Report</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review the official monthly breakdown, tallies, and analytics charts generated for {year}.</p>
-                                </div>
-                                <button onClick={() => setIframeUrl(myLinks['Monthly Census Link'])} className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-indigo-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-slate-600">
-                                   View Document <Maximize2 className="w-4 h-4" />
-                                </button>
-                             </div>
-                          )}
-
-                          {myLinks['Yearly Census Link'] && (
-                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-purple-400 transition-colors">
-                                <div>
-                                   <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-purple-200 dark:border-slate-600"><CalendarDays className="w-7 h-7" /></div>
-                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Yearly Census Report</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the finalized, comprehensive year-end statistical report document for {year}.</p>
-                                </div>
-                                <button onClick={() => setIframeUrl(myLinks['Yearly Census Link'])} className="w-full bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-purple-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-purple-200 dark:border-slate-600">
-                                   View Document <Maximize2 className="w-4 h-4" />
-                                </button>
-                             </div>
-                          )}
-
-                       </div>
-                   )}
-                </div>
-             )}
           </div>
        )
     }
